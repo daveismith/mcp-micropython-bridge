@@ -1,15 +1,15 @@
 """
-raw_repl.py — MicroPython Raw REPL プロトコル実装
+raw_repl.py - MicroPython Raw REPL protocol implementation
 
-MicroPython の Raw REPL モードを使ってコードを送受信する。
+Sends and receives code using MicroPython's Raw REPL mode.
 
-Raw REPL の流れ (mpremote 実装準拠):
-  1. Ctrl+C x2 で現在の実行をキャンセル
-  2. Ctrl+A でRaw REPLモードに入る
-     ボードは "raw REPL; CTRL-B to exit\r\n>" を返す
-  3. コードを送信し Ctrl+D で実行トリガー
-     ボードは "OK" を返してから実行開始
-  4. 実行完了後 stdout\x04stderr\x04> が返ってくる
+The Raw REPL flow (following the mpremote implementation):
+  1. Ctrl+C twice to cancel whatever is currently running
+  2. Ctrl+A to enter Raw REPL mode
+     the board returns "raw REPL; CTRL-B to exit\r\n>"
+  3. Send the code, then Ctrl+D to trigger execution
+     the board returns "OK" and then starts executing
+  4. Once execution finishes, stdout\x04stderr\x04> comes back
 """
 
 from __future__ import annotations
@@ -19,20 +19,20 @@ from dataclasses import dataclass
 
 from .transport import StreamTransport
 
-# Raw REPL 制御文字
-CTRL_A = b"\x01"   # Raw REPL モードへ
-CTRL_B = b"\x02"   # Normal REPL モードへ
-CTRL_C = b"\x03"   # 実行中断
-CTRL_D = b"\x04"   # 実行トリガー / レスポンス区切り
+# Raw REPL control characters
+CTRL_A = b"\x01"   # switch to Raw REPL mode
+CTRL_B = b"\x02"   # switch to Normal REPL mode
+CTRL_C = b"\x03"   # interrupt execution
+CTRL_D = b"\x04"   # execution trigger / response separator
 
-# タイムアウト定数 (秒)
+# Timeout constants (seconds)
 DEFAULT_TIMEOUT = 10.0
 ENTER_TIMEOUT = 5.0
 
 
 @dataclass
 class ReplResult:
-    """Raw REPL 実行結果"""
+    """The result of a Raw REPL execution"""
     stdout: str
     stderr: str
 
@@ -47,44 +47,44 @@ class ReplResult:
 
 
 class RawReplError(Exception):
-    """Raw REPL 操作に関するエラー"""
+    """An error relating to a Raw REPL operation"""
 
 
 class RawRepl:
-    """MicroPython Raw REPL プロトコルの実装 (mpremote 準拠)"""
+    """Implementation of the MicroPython Raw REPL protocol (following mpremote)"""
 
     def __init__(self, stream: StreamTransport) -> None:
         self._stream = stream
         self._read_buffer = bytearray()
 
     # ------------------------------------------------------------------
-    # 公開 API
+    # Public API
     # ------------------------------------------------------------------
 
     def enter(self) -> None:
-        """Raw REPL モードに入る。失敗時は RawReplError を送出。"""
+        """Enter Raw REPL mode. Raises RawReplError on failure."""
         self._read_buffer.clear()
-        # 実行中の処理をキャンセルしてプロンプトを出す
+        # Cancel whatever is running so that a prompt appears
         self._stream.send_bytes(CTRL_C)
         self._stream.send_bytes(CTRL_C)
         time.sleep(0.2)
         self._stream.drain_pending_input()
 
-        # Raw REPL へ移行  (mpremote: exec_raw 参照)
+        # Switch to the Raw REPL  (see mpremote: exec_raw)
         self._stream.send_bytes(CTRL_A)
         try:
-            # "raw REPL; CTRL-B to exit\r\n>" を待つ
+            # Wait for "raw REPL; CTRL-B to exit\r\n>"
             self._read_until(b"\r\n>", timeout=ENTER_TIMEOUT)
         except TimeoutError:
-            # フォールバック: 一部のファームウェアでは異なる文字列を返す
+            # Fallback: some firmware returns a different string
             pass
 
-        # 念のためバッファをクリア
+        # Clear the buffer, just in case
         time.sleep(0.05)
         self._stream.drain_pending_input()
 
     def exit(self) -> None:
-        """Normal REPL モードに戻る。"""
+        """Return to Normal REPL mode."""
         self._stream.send_bytes(CTRL_B)
         time.sleep(0.1)
         self._stream.drain_pending_input()
@@ -92,39 +92,40 @@ class RawRepl:
 
     def exec_code(self, code: str, timeout: float = DEFAULT_TIMEOUT) -> ReplResult:
         """
-        コードを Raw REPL で実行し結果を返す。
+        Run code on the Raw REPL and return the result.
 
         Args:
-            code: 実行する Python コード（複数行OK）
-            timeout: コード送信から Raw REPL 復帰完了までの全体タイムアウト（秒）
+            code: the Python code to run (multiple lines are fine)
+            timeout: total timeout in seconds, from sending the code through
+                returning to the Raw REPL
 
         Returns:
-            ReplResult: stdout / stderr を含む実行結果
+            ReplResult: the execution result, including stdout / stderr
 
         Raises:
-            RawReplError: 通信エラーや予期しないレスポンス
+            RawReplError: a communication error or an unexpected response
         """
         if timeout < 0:
             raise ValueError("timeout must be >= 0")
 
-        # コードを送信後 Ctrl+D で実行トリガー (mpremote 準拠)
+        # Send the code, then Ctrl+D to trigger execution (following mpremote)
         encoded = code.encode("utf-8")
         self._stream.send_bytes(encoded)
         self._stream.send_bytes(CTRL_D)
         self._stream.flush()
         deadline = time.monotonic() + timeout
 
-        # "OK" を待つ
-        self._read_until_with_budget(b"OK", deadline=deadline, stage="'OK' 応答")
+        # Wait for "OK"
+        self._read_until_with_budget(b"OK", deadline=deadline, stage="the 'OK' response")
 
-        # stdout を \x04 まで読む
+        # Read stdout up to \x04
         stdout_bytes = self._read_until_with_budget(CTRL_D, deadline=deadline, stage="stdout")
 
-        # stderr を \x04 まで読む
+        # Read stderr up to \x04
         stderr_bytes = self._read_until_with_budget(CTRL_D, deadline=deadline, stage="stderr")
 
-        # 終端プロンプト ">" を読み捨てる
-        self._read_until_with_budget(b">", deadline=deadline, stage="Raw REPL プロンプト復帰")
+        # Read and discard the terminating ">" prompt
+        self._read_until_with_budget(b">", deadline=deadline, stage="the return to the Raw REPL prompt")
 
         return ReplResult(
             stdout=stdout_bytes.decode("utf-8", errors="replace"),
@@ -133,7 +134,7 @@ class RawRepl:
 
     def exec_code_safe(self, code: str, timeout: float = DEFAULT_TIMEOUT) -> ReplResult:
         """
-        enter() → exec_code() → exit() をまとめて実行する便利メソッド。
+        Convenience method that runs enter() -> exec_code() -> exit() together.
         """
         self.enter()
         try:
@@ -142,31 +143,33 @@ class RawRepl:
             self.exit()
 
     # ------------------------------------------------------------------
-    # 内部ユーティリティ
+    # Internal utilities
     # ------------------------------------------------------------------
 
     def _read_until_with_budget(self, terminator: bytes, deadline: float, stage: str) -> bytes:
         remaining = deadline - time.monotonic()
         if remaining <= 0:
             raise RawReplError(
-                f"{stage} の待機を開始する前にタイムアウトしました。"
-                " exec_code(timeout=...) はコード送信から Raw REPL 復帰までの全体予算です。"
+                f"Timed out before starting to wait for {stage}."
+                " exec_code(timeout=...) is the total budget from sending the code"
+                " through returning to the Raw REPL."
             )
         try:
             return self._read_until(terminator, timeout=remaining)
         except TimeoutError as e:
-            raise RawReplError(f"{stage} の受信中にタイムアウトしました: {e}") from e
+            raise RawReplError(f"Timed out while receiving {stage}: {e}") from e
 
     def _read_until(self, terminator: bytes, timeout: float = DEFAULT_TIMEOUT) -> bytes:
         """
-        terminator が現れるまでバイト列を読み込む。
-        terminator 自体は戻り値に含まない。
+        Read bytes until the terminator appears.
+        The terminator itself is not included in the return value.
 
-        実機対応: できるだけチャンクで読み、terminator をまたいで先読みした
-        データは内部バッファへ戻す。大きな stdout でも 1 バイトずつ読まない。
+        For real hardware: read in chunks wherever possible, and push data read
+        ahead past the terminator back into the internal buffer. Even a large
+        stdout is not read one byte at a time.
 
         Raises:
-            TimeoutError: timeout 秒以内に terminator が現れなかった
+            TimeoutError: the terminator did not appear within timeout seconds
         """
         buf = bytearray()
         deadline = time.monotonic() + timeout
@@ -179,8 +182,8 @@ class RawRepl:
                 remaining = max(deadline - time.monotonic(), 0.0)
                 if remaining <= 0:
                     raise TimeoutError(
-                        f"タイムアウト: {terminator!r} を {timeout:.1f}秒以内に受信できません。"
-                        f" 受信済みデータ: {bytes(buf)!r}"
+                        f"Timed out: {terminator!r} was not received within {timeout:.1f}s."
+                        f" Data received so far: {bytes(buf)!r}"
                     )
                 chunk = self._stream.read_some(timeout=min(0.25, remaining))
 
@@ -196,6 +199,6 @@ class RawRepl:
 
             if time.monotonic() >= deadline:
                 raise TimeoutError(
-                    f"タイムアウト: {terminator!r} を {timeout:.1f}秒以内に受信できません。"
-                    f" 受信済みデータ: {bytes(buf)!r}"
+                    f"Timed out: {terminator!r} was not received within {timeout:.1f}s."
+                    f" Data received so far: {bytes(buf)!r}"
                 )

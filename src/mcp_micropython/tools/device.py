@@ -11,7 +11,7 @@ from mcp.server.fastmcp import FastMCP
 from ..session_manager import SessionManager
 from ..transport import UnsupportedOperationError
 
-# デバイス情報取得コード (MicroPython上で実行)
+# Code that gathers device information (runs on the MicroPython board)
 _GET_INFO_CODE = """\
 import sys, gc, os
 gc.collect()
@@ -141,12 +141,12 @@ def _parse_device_info(stdout: str) -> DeviceInfo:
 
 
 def register(mcp: FastMCP, manager: SessionManager) -> None:
-    """デバイス関連ツールを MCP サーバーに登録する。"""
+    """Register the device-related tools with the MCP server."""
 
     @mcp.tool()
     def micropython_list_ports() -> ListPortsResult:
         """
-        接続可能なシリアルポートを一覧表示
+        List the serial ports available to connect to
         """
         ports = manager.list_ports()
         return {
@@ -169,12 +169,12 @@ def register(mcp: FastMCP, manager: SessionManager) -> None:
         baudrate: int = 115200,
     ) -> ConnectionResult:
         """
-        指定ターゲットへ接続
+        Connect to the given target
 
         Args:
-            target: `COM3` なら serial、`host[:port]` なら WebREPL
-            password: WebREPL 接続時のパスワード
-            baudrate: serial 接続時のボーレート
+            target: `COM3` for serial, `host[:port]` for WebREPL
+            password: the password, for a WebREPL connection
+            baudrate: the baud rate, for a serial connection
         """
         try:
             status = manager.connect(target=target, password=password, baudrate=baudrate)
@@ -201,12 +201,12 @@ def register(mcp: FastMCP, manager: SessionManager) -> None:
     @mcp.tool()
     def micropython_disconnect() -> DisconnectResult:
         """
-        現在の MicroPython ボード接続を切断
-        未接続時も成功を返す
+        Close the current connection to the MicroPython board
+        Returns success even when not connected
 
         Returns:
-            ok: 成功 True
-            error: エラー時のメッセージ
+            ok: True on success
+            error: the message on failure
         """
         if not manager.is_connected:
             return {
@@ -222,17 +222,17 @@ def register(mcp: FastMCP, manager: SessionManager) -> None:
     @mcp.tool()
     def micropython_connection_status() -> ConnectionStatusResult:
         """
-        現在の接続状態を返す
+        Return the current connection state
 
         Returns:
-            ok: 成功 True
-            connected: 接続中なら True
-            transport: `serial` または `webrepl`
-            target: 接続時に指定したターゲット
-            host: WebREPL 接続時のホスト
-            port: 接続先ポート
-            baudrate: serial 接続時のボーレート
-            error: エラー時のメッセージ
+            ok: True on success
+            connected: True while connected
+            transport: `serial` or `webrepl`
+            target: the target given when connecting
+            host: the host, for a WebREPL connection
+            port: the port connected to
+            baudrate: the baud rate, for a serial connection
+            error: the message on failure
         """
         status = manager.connection_status()
         return {
@@ -249,15 +249,15 @@ def register(mcp: FastMCP, manager: SessionManager) -> None:
     @mcp.tool()
     def micropython_get_info() -> GetInfoResult:
         """
-        MicroPython ボードのデバイス情報を取得
+        Get device information from the MicroPython board
 
         Returns:
-            ok: 成功 True
-            info: 取得したデバイス情報
-            error: エラー時のメッセージ
+            ok: True on success
+            info: the device information retrieved
+            error: the message on failure
 
         Notes:
-            `info` には必要に応じて次を含む。
+            `info` includes the following, where available.
             `platform`, `version`, `implementation`,
             `free_mem`, `alloc_mem`, `freq_mhz`,
             `fs_total_kb`, `fs_free_kb`
@@ -285,12 +285,12 @@ def register(mcp: FastMCP, manager: SessionManager) -> None:
     @mcp.tool()
     def micropython_reset() -> ActionResult:
         """
-        MicroPython ボードをソフトリセット (machine.reset() に相当)
-        リセット後は再接続が必要
+        Soft reset the MicroPython board (equivalent to machine.reset())
+        Reconnection is required after the reset
         """
         try:
-            # machine.reset() はレスポンスを返さずリセットするため
-            # タイムアウトを短めに設定してエラーを無視する
+            # machine.reset() resets without returning a response, so use a
+            # short timeout and ignore the resulting error
             try:
                 manager.exec_code("import machine; machine.reset()", timeout=2.0)
             except Exception:
@@ -302,7 +302,7 @@ def register(mcp: FastMCP, manager: SessionManager) -> None:
 
     @mcp.tool()
     def micropython_interrupt() -> ActionResult:
-        """Ctrl-C を送って実行中の処理を中断"""
+        """Send Ctrl-C to interrupt the running program"""
         try:
             manager.interrupt()
             return {"ok": True, "error": None}
@@ -316,19 +316,19 @@ def register(mcp: FastMCP, manager: SessionManager) -> None:
         max_bytes: int | None = None,
     ) -> SerialReadResult:
         """
-        接続中のデバイスから一定時間ストリーム出力を読み取る
+        Read streamed output from the connected device for a fixed period of time
 
         Args:
-            duration: 読み取りを続ける最大秒数
-            idle_timeout: この秒数だけ無通信なら早期終了
-            max_bytes: 読み取る最大バイト数。超えると `truncated=True`
+            duration: the maximum number of seconds to keep reading
+            idle_timeout: stop early after this many seconds with no traffic
+            max_bytes: the maximum number of bytes to read; exceeding it sets `truncated=True`
 
         Returns:
-            ok: 成功 True
-            stdout: 読み取ったテキスト
-            truncated: `max_bytes` で打ち切られたら True
-            bytes_read: 実際に読んだバイト数
-            error: エラー時のメッセージ
+            ok: True on success
+            stdout: the text that was read
+            truncated: True if reading was cut off by `max_bytes`
+            bytes_read: the number of bytes actually read
+            error: the message on failure
         """
         try:
             result = manager.read_stream(
@@ -359,19 +359,19 @@ def register(mcp: FastMCP, manager: SessionManager) -> None:
         max_bytes: int | None = None,
     ) -> SerialReadUntilResult:
         """
-        接続中のデバイス出力を、指定文字列が現れるまで読み取る
+        Read output from the connected device until the given string appears
 
         Args:
-            pattern: 検出したい文字列。正規表現ではなく部分文字列
-            timeout: 待機する最大秒数
-            max_bytes: 読み取る最大バイト数
+            pattern: the string to detect; a substring, not a regular expression
+            timeout: the maximum number of seconds to wait
+            max_bytes: the maximum number of bytes to read
 
         Returns:
-            ok: 成功 True
-            matched: `pattern` を検出したら True
-            stdout: 読み取ったテキスト
-            bytes_read: 実際に読んだバイト数
-            error: エラー時のメッセージ
+            ok: True on success
+            matched: True if `pattern` was detected
+            stdout: the text that was read
+            bytes_read: the number of bytes actually read
+            error: the message on failure
         """
         try:
             result = manager.read_until(
@@ -402,19 +402,19 @@ def register(mcp: FastMCP, manager: SessionManager) -> None:
         max_bytes: int | None = None,
     ) -> ResetCaptureResult:
         """
-        デバイスをリセットし、起動直後の出力を一定時間読み取る
+        Reset the device and read the output produced right after boot, for a fixed period
 
         Args:
-            capture_duration: リセット後の読み取り最大秒数
-            idle_timeout: この秒数だけ無通信なら早期終了
-            max_bytes: 読み取る最大バイト数。超えると `truncated=True`
+            capture_duration: the maximum number of seconds to read after the reset
+            idle_timeout: stop early after this many seconds with no traffic
+            max_bytes: the maximum number of bytes to read; exceeding it sets `truncated=True`
 
         Returns:
-            ok: リセットと読み取り呼び出しに成功したら True
-            stdout: 起動後に取得したテキスト
-            reset_ok: リセット操作自体が成功したら True
-            truncated: `max_bytes` で打ち切られたら True
-            error: エラー時のメッセージ
+            ok: True if both the reset and the read call succeeded
+            stdout: the text captured after boot
+            reset_ok: True if the reset operation itself succeeded
+            truncated: True if reading was cut off by `max_bytes`
+            error: the message on failure
         """
         try:
             result = manager.reset_and_capture(

@@ -103,7 +103,7 @@ class RawReplExecCodeTests(unittest.TestCase):
             with self.assertRaises(RawReplError) as ctx:
                 repl.exec_code("print('hang')", timeout=0.5)
 
-        self.assertIn("stdout の受信中にタイムアウト", str(ctx.exception))
+        self.assertIn("Timed out while receiving stdout", str(ctx.exception))
 
     def test_exec_code_zero_timeout_fails_before_waiting_for_ok(self) -> None:
         clock = FakeClock()
@@ -114,7 +114,7 @@ class RawReplExecCodeTests(unittest.TestCase):
             with self.assertRaises(RawReplError) as ctx:
                 repl.exec_code("print('x')", timeout=0.0)
 
-        self.assertIn("'OK' 応答 の待機を開始する前にタイムアウト", str(ctx.exception))
+        self.assertIn("Timed out before starting to wait for the 'OK' response", str(ctx.exception))
 
     def test_exec_code_rejects_negative_timeout(self) -> None:
         clock = FakeClock()

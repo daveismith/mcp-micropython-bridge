@@ -133,7 +133,8 @@ class SessionManager:
     def _ensure_connected(self) -> StreamTransport:
         if not self.is_connected or self._transport is None:
             raise NotConnectedError(
-                "MicroPython ボードに接続されていません。micropython_connect ツールで接続してください。"
+                "Not connected to a MicroPython board."
+                " Use the micropython_connect tool to connect."
             )
         return self._transport
 

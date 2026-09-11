@@ -1,20 +1,20 @@
 """
-filesystem.py - ファイルシステム関連ツール
+filesystem.py - filesystem tools
 
-MCP ツール:
-  - micropython_list_files       : ファイル/ディレクトリ一覧
-  - micropython_stat_path        : パス情報取得
-  - micropython_read_file        : ファイル内容の読み出し
-  - micropython_read_lines       : テキストファイルの行単位読み出し
-  - micropython_head_lines       : テキストファイル先頭行の読み出し
-  - micropython_tail_lines       : テキストファイル末尾行の読み出し
-  - micropython_read_hardware_md : デバイス上の /HARDWARE.md を読む
-  - micropython_write_file       : ファイルへの書き込み
-  - micropython_append_file      : ファイルへの追記
-  - micropython_delete_file      : ファイルの削除
-  - micropython_make_dir         : ディレクトリ作成
-  - micropython_remove_dir       : 空ディレクトリ削除
-  - micropython_rename_path      : パス名変更
+MCP tools:
+  - micropython_list_files       : list files and directories
+  - micropython_stat_path        : get information about a path
+  - micropython_read_file        : read the contents of a file
+  - micropython_read_lines       : read a text file by line
+  - micropython_head_lines       : read the first lines of a text file
+  - micropython_tail_lines       : read the last lines of a text file
+  - micropython_read_hardware_md : read /HARDWARE.md on the device
+  - micropython_write_file       : write to a file
+  - micropython_append_file      : append to a file
+  - micropython_delete_file      : delete a file
+  - micropython_make_dir         : create a directory
+  - micropython_remove_dir       : remove an empty directory
+  - micropython_rename_path      : rename a path
 """
 
 from __future__ import annotations
@@ -153,7 +153,7 @@ class RenamePathResult(TypedDict):
 
 
 def register(mcp: FastMCP, manager: SessionManager) -> None:
-    """ファイルシステムツールを MCP サーバーに登録"""
+    """Register the filesystem tools with the MCP server"""
 
     def _path_join(parent: str, name: str) -> str:
         if parent in ("", "/"):
@@ -472,10 +472,10 @@ except Exception as e:
     @mcp.tool()
     def micropython_list_files(path: str = "/") -> ListFilesResult:
         """
-        MicroPython ボードのファイルシステム上のファイル/ディレクトリを一覧表示
+        List the files and directories on the MicroPython board's filesystem
 
         Args:
-            path: 一覧表示するディレクトリのパス (デフォルト: "/")
+            path: the path of the directory to list (default: "/")
         """
         code = f"""\
 import os
@@ -562,19 +562,19 @@ except Exception as e:
     @mcp.tool()
     def micropython_stat_path(path: str) -> StatPathResult:
         """
-        MicroPython ボード上のパス情報を取得
+        Get information about a path on the MicroPython board
 
         Args:
-            path: 対象パス
+            path: the target path
 
         Returns:
-            ok: 取得に成功したら True
-            path: 対象パス
-            kind: `file`, `dir`, `unknown` のいずれか
-            size_bytes: ファイルサイズ
-            mode: `os.stat()` の mode 値
-            mtime: 更新時刻
-            error: エラー時のメッセージ
+            ok: True if retrieval succeeded
+            path: the target path
+            kind: one of `file`, `dir`, or `unknown`
+            size_bytes: the file size
+            mode: the mode value from `os.stat()`
+            mtime: the modification time
+            error: the message on failure
         """
         return _stat_path(path)
 
@@ -587,22 +587,22 @@ except Exception as e:
         as_base64: bool = False,
     ) -> ReadFileResult:
         """
-        MicroPython ボードのファイルを読み出して返す
+        Read a file from the MicroPython board and return it
 
         Args:
-            path: 読み出すファイルのパス (例: "/main.py")
-            timeout: コード送信から Raw REPL 復帰完了までの全体タイムアウト秒数
-            encoding: テキストデコードに使うエンコーディング
-            errors: テキストデコード時のエラー処理
-            as_base64: True のときは `content` を空にし、`content_base64` に base64 を返す
+            path: the path of the file to read (e.g. "/main.py")
+            timeout: total timeout in seconds, from sending the code through returning to the Raw REPL
+            encoding: the encoding used to decode the text
+            errors: the error handling used when decoding the text
+            as_base64: when True, leave `content` empty and return base64 in `content_base64`
 
         Returns:
-            ok: 読み出しに成功したら True
-            path: 読み出したファイルパス
-            content: テキスト内容。`as_base64=True` のときは空文字列
-            content_base64: base64 内容。`as_base64=False` のときは None
-            size_bytes: 読み出したバイト数
-            error: エラー時のメッセージ
+            ok: True if reading succeeded
+            path: the path of the file that was read
+            content: the text content; an empty string when `as_base64=True`
+            content_base64: the base64 content; None when `as_base64=False`
+            size_bytes: the number of bytes read
+            error: the message on failure
         """
         data, error = _read_file_bytes(path, float(timeout))
         if error is not None or data is None:
@@ -649,10 +649,10 @@ except Exception as e:
     @mcp.tool()
     def micropython_read_hardware_md(timeout: int = 5) -> ReadFileResult:
         """
-        デバイス上の /HARDWARE.md を読み出して返す
+        Read /HARDWARE.md from the device and return it
 
         Args:
-            timeout: コード送信から Raw REPL 復帰完了までの全体タイムアウト秒数
+            timeout: total timeout in seconds, from sending the code through returning to the Raw REPL
         """
         data, error = _read_file_bytes(HARDWARE_MD_PATH, float(timeout))
         if error is not None or data is None:
@@ -694,21 +694,21 @@ except Exception as e:
         overwrite: bool = True,
     ) -> UploadFileResult:
         """
-        ローカルファイルを MicroPython ボードへ転送
+        Transfer a local file to the MicroPython board
 
         Args:
-            local_path: ホスト側ファイルパス。ワークスペース内のみ指定可能
-            remote_path: デバイス側ファイルパス
-            timeout: コード送信から Raw REPL 復帰完了までの全体タイムアウト秒数
-            overwrite: False のとき既存ファイルを上書きしない
+            local_path: the host-side file path; only paths inside the workspace are allowed
+            remote_path: the device-side file path
+            timeout: total timeout in seconds, from sending the code through returning to the Raw REPL
+            overwrite: when False, do not overwrite an existing file
 
         Returns:
-            ok: 転送に成功したら True
-            local_path: 読み込んだローカルパス
-            remote_path: 書き込んだデバイス側パス
-            bytes_written: 書き込んだバイト数
-            sha256: 転送内容の sha256。失敗時は None
-            error: エラー時のメッセージ
+            ok: True if the transfer succeeded
+            local_path: the local path that was read
+            remote_path: the device-side path that was written
+            bytes_written: the number of bytes written
+            sha256: the sha256 of the transferred content; None on failure
+            error: the message on failure
         """
         data, resolved_local_path, error = _read_local_file_bytes(local_path)
         local_path_value = str(resolved_local_path) if resolved_local_path is not None else local_path
@@ -752,21 +752,21 @@ except Exception as e:
         overwrite: bool = False,
     ) -> DownloadFileResult:
         """
-        MicroPython ボード上のファイルをローカルへ保存する。
+        Save a file from the MicroPython board to the local machine.
 
         Args:
-            remote_path: デバイス側ファイルパス
-            local_path: ホスト側保存先パス。ワークスペース内のみ指定可能
-            timeout: コード送信から Raw REPL 復帰完了までの全体タイムアウト秒数
-            overwrite: False のとき既存ファイルを上書きしない
+            remote_path: the device-side file path
+            local_path: the host-side destination path; only paths inside the workspace are allowed
+            timeout: total timeout in seconds, from sending the code through returning to the Raw REPL
+            overwrite: when False, do not overwrite an existing file
 
         Returns:
-            ok: 保存に成功したら True
-            remote_path: 読み出したデバイス側パス
-            local_path: 保存したローカルパス
-            bytes_written: 保存したバイト数
-            sha256: 保存内容の sha256。失敗時は None
-            error: エラー時のメッセージ
+            ok: True if saving succeeded
+            remote_path: the device-side path that was read
+            local_path: the local path that was saved
+            bytes_written: the number of bytes saved
+            sha256: the sha256 of the saved content; None on failure
+            error: the message on failure
         """
         resolved_local_path, path_error = _ensure_local_workspace_path(local_path)
         local_path_value = str(resolved_local_path) if resolved_local_path is not None else local_path
@@ -809,12 +809,12 @@ except Exception as e:
         timeout: int = 10,
     ) -> HashFileResult:
         """
-        MicroPython ボード上のファイルのハッシュを返す。
+        Return a hash of a file on the MicroPython board.
 
         Args:
-            path: 対象ファイルパス
-            algorithm: ハッシュアルゴリズム。現状は sha256 のみ
-            timeout: コード送信から Raw REPL 復帰完了までの全体タイムアウト秒数
+            path: the target file path
+            algorithm: the hash algorithm; currently only sha256
+            timeout: total timeout in seconds, from sending the code through returning to the Raw REPL
         """
         return _hash_remote_file(path, timeout, algorithm)
 
@@ -825,24 +825,24 @@ except Exception as e:
         timeout: int = 10,
     ) -> CompareLocalRemoteResult:
         """
-        ローカルファイルとデバイス上のファイルが一致するか確認する。
+        Check whether a local file and a file on the device match.
 
         Args:
-            local_path: ホスト側ファイルパス。ワークスペース内のみ指定可能
-            remote_path: デバイス側ファイルパス
-            timeout: コード送信から Raw REPL 復帰完了までの全体タイムアウト秒数
+            local_path: the host-side file path; only paths inside the workspace are allowed
+            remote_path: the device-side file path
+            timeout: total timeout in seconds, from sending the code through returning to the Raw REPL
 
         Returns:
-            ok: 比較処理に成功したら True
-            local_path: 比較したローカルパス
-            remote_path: 比較したデバイス側パス
-            local_sha256: ローカルファイルの sha256
-            remote_sha256: デバイス側ファイルの sha256
-            same: 両者が一致したら True
-            error: エラー時のメッセージ
+            ok: True if the comparison succeeded
+            local_path: the local path that was compared
+            remote_path: the device-side path that was compared
+            local_sha256: the sha256 of the local file
+            remote_sha256: the sha256 of the device-side file
+            same: True if the two match
+            error: the message on failure
 
         Notes:
-            比較は sha256 ハッシュで行う。
+            The comparison is done with sha256 hashes.
         """
         local_data, resolved_local_path, local_error = _read_local_file_bytes(local_path)
         local_path_value = str(resolved_local_path) if resolved_local_path is not None else local_path
@@ -891,24 +891,24 @@ except Exception as e:
         errors: str = "strict",
     ) -> ReadLinesResult:
         """
-        MicroPython ボード上のテキストファイルを行単位で一部読み出す。
+        Read part of a text file on the MicroPython board, by line.
 
         Args:
-            path: 対象ファイルパス
-            start_line: 1 始まりの開始行番号
-            max_lines: 返却する最大行数
-            timeout: コード送信から Raw REPL 復帰完了までの全体タイムアウト秒数
-            encoding: テキストデコードに使うエンコーディング
-            errors: テキストデコード時のエラー処理
+            path: the target file path
+            start_line: the starting line number, 1-based
+            max_lines: the maximum number of lines to return
+            timeout: total timeout in seconds, from sending the code through returning to the Raw REPL
+            encoding: the encoding used to decode the text
+            errors: the error handling used when decoding the text
 
         Returns:
-            ok: 読み出しに成功したら True
-            path: 対象ファイルパス
-            start_line: 実際に使った開始行番号
-            line_count: 返した行数
-            content: 返したテキスト
-            eof: 返却範囲がファイル末尾に達したら True
-            error: エラー時のメッセージ
+            ok: True if reading succeeded
+            path: the target file path
+            start_line: the starting line number actually used
+            line_count: the number of lines returned
+            content: the text returned
+            eof: True if the returned range reached the end of the file
+            error: the message on failure
         """
         if start_line < 1:
             return {
@@ -965,22 +965,22 @@ except Exception as e:
         errors: str = "strict",
     ) -> ReadTextExcerptResult:
         """
-        MicroPython ボード上のテキストファイル先頭の数行を返す。
+        Return the first few lines of a text file on the MicroPython board.
 
         Args:
-            path: 対象ファイルパス
-            lines: 返却する最大行数
-            timeout: コード送信から Raw REPL 復帰完了までの全体タイムアウト秒数
-            encoding: テキストデコードに使うエンコーディング
-            errors: テキストデコード時のエラー処理
+            path: the target file path
+            lines: the maximum number of lines to return
+            timeout: total timeout in seconds, from sending the code through returning to the Raw REPL
+            encoding: the encoding used to decode the text
+            errors: the error handling used when decoding the text
 
         Returns:
-            ok: 読み出しに成功したら True
-            path: 対象ファイルパス
-            content: 返したテキスト
-            line_count: 返した行数
-            truncated: 返せなかった残り行があるとき True
-            error: エラー時のメッセージ
+            ok: True if reading succeeded
+            path: the target file path
+            content: the text returned
+            line_count: the number of lines returned
+            truncated: True when there are remaining lines that could not be returned
+            error: the message on failure
         """
         if lines < 1:
             return {"ok": False, "path": path, "content": "", "line_count": 0, "truncated": False, "error": "lines must be >= 1"}
@@ -1016,22 +1016,22 @@ except Exception as e:
         errors: str = "strict",
     ) -> ReadTextExcerptResult:
         """
-        MicroPython ボード上のテキストファイル末尾の数行を返す。
+        Return the last few lines of a text file on the MicroPython board.
 
         Args:
-            path: 対象ファイルパス
-            lines: 返却する最大行数
-            timeout: コード送信から Raw REPL 復帰完了までの全体タイムアウト秒数
-            encoding: テキストデコードに使うエンコーディング
-            errors: テキストデコード時のエラー処理
+            path: the target file path
+            lines: the maximum number of lines to return
+            timeout: total timeout in seconds, from sending the code through returning to the Raw REPL
+            encoding: the encoding used to decode the text
+            errors: the error handling used when decoding the text
 
         Returns:
-            ok: 読み出しに成功したら True
-            path: 対象ファイルパス
-            content: 返したテキスト
-            line_count: 返した行数
-            truncated: 返せなかった先頭側の行があるとき True
-            error: エラー時のメッセージ
+            ok: True if reading succeeded
+            path: the target file path
+            content: the text returned
+            line_count: the number of lines returned
+            truncated: True when there are earlier lines that could not be returned
+            error: the message on failure
         """
         if lines < 1:
             return {"ok": False, "path": path, "content": "", "line_count": 0, "truncated": False, "error": "lines must be >= 1"}
@@ -1067,23 +1067,23 @@ except Exception as e:
         content_base64: str | None = None,
     ) -> WriteFileResult:
         """
-        MicroPython ボードのファイルに内容を書き込む（上書き）。
+        Write content to a file on the MicroPython board (overwriting it).
 
         Args:
-            path: 書き込み先ファイルのパス (例: "/main.py")
-            content: 書き込むテキスト内容。`content_base64` とは排他的
-            timeout: コード送信から Raw REPL 復帰完了までの全体タイムアウト秒数
-            encoding: content をバイト列に変換するエンコーディング
-            content_base64: base64 で表した書き込みデータ。`content` とは排他的
+            path: the path of the file to write to (e.g. "/main.py")
+            content: the text content to write; mutually exclusive with `content_base64`
+            timeout: total timeout in seconds, from sending the code through returning to the Raw REPL
+            encoding: the encoding used to turn content into bytes
+            content_base64: the data to write, as base64; mutually exclusive with `content`
 
         Returns:
-            ok: 書き込みに成功したら True
-            path: 書き込み先パス
-            bytes_written: 書き込んだバイト数
-            error: エラー時のメッセージ
+            ok: True if writing succeeded
+            path: the path written to
+            bytes_written: the number of bytes written
+            error: the message on failure
 
         Notes:
-            `content` と `content_base64` はどちらか片方のみ指定する。
+            Specify exactly one of `content` and `content_base64`.
         """
         data, error = _resolve_write_bytes(
             content=content,
@@ -1108,23 +1108,23 @@ except Exception as e:
         content_base64: str | None = None,
     ) -> WriteFileResult:
         """
-        MicroPython ボードのファイルに内容を追記する。
+        Append content to a file on the MicroPython board.
 
         Args:
-            path: 追記先ファイルのパス (例: "/main.py")
-            content: 追記するテキスト内容。`content_base64` とは排他的
-            timeout: コード送信から Raw REPL 復帰完了までの全体タイムアウト秒数
-            encoding: content をバイト列に変換するエンコーディング
-            content_base64: base64 で表した追記データ。`content` とは排他的
+            path: the path of the file to append to (e.g. "/main.py")
+            content: the text content to append; mutually exclusive with `content_base64`
+            timeout: total timeout in seconds, from sending the code through returning to the Raw REPL
+            encoding: the encoding used to turn content into bytes
+            content_base64: the data to append, as base64; mutually exclusive with `content`
 
         Returns:
-            ok: 追記に成功したら True
-            path: 追記先パス
-            bytes_written: 今回追記したバイト数
-            error: エラー時のメッセージ
+            ok: True if appending succeeded
+            path: the path appended to
+            bytes_written: the number of bytes appended by this call
+            error: the message on failure
 
         Notes:
-            `content` と `content_base64` はどちらか片方のみ指定する。
+            Specify exactly one of `content` and `content_base64`.
         """
         data, error = _resolve_write_bytes(
             content=content,
@@ -1143,10 +1143,10 @@ except Exception as e:
     @mcp.tool()
     def micropython_delete_file(path: str) -> DeleteFileResult:
         """
-        MicroPython ボード上のファイルを削除する。
+        Delete a file on the MicroPython board.
 
         Args:
-            path: 削除するファイルのパス (例: "/test.py")
+            path: the path of the file to delete (e.g. "/test.py")
         """
         ok, error = _exec_simple(
             f"import os\ntry:\n os.remove({path!r})\n print('OK')\nexcept Exception as e:\n print(f'ERROR: {{e}}')",
@@ -1162,12 +1162,12 @@ except Exception as e:
         exist_ok: bool = False,
     ) -> MakeDirResult:
         """
-        MicroPython ボード上にディレクトリを作成する。
+        Create a directory on the MicroPython board.
 
         Args:
-            path: 作成するディレクトリパス
-            parents: True のときは親ディレクトリも順に作成
-            exist_ok: True のときは既存ディレクトリを許容
+            path: the path of the directory to create
+            parents: when True, create the parent directories in turn as well
+            exist_ok: when True, tolerate an existing directory
         """
         code = f"""\
 import os
@@ -1212,10 +1212,10 @@ except Exception as e:
     @mcp.tool()
     def micropython_remove_dir(path: str) -> DeleteFileResult:
         """
-        MicroPython ボード上の空ディレクトリを削除する。
+        Remove an empty directory on the MicroPython board.
 
         Args:
-            path: 削除するディレクトリのパス
+            path: the path of the directory to remove
         """
         ok, error = _exec_simple(
             f"import os\ntry:\n os.rmdir({path!r})\n print('OK')\nexcept Exception as e:\n print(f'ERROR: {{e}}')",
@@ -1227,11 +1227,11 @@ except Exception as e:
     @mcp.tool()
     def micropython_rename_path(src: str, dst: str) -> RenamePathResult:
         """
-        MicroPython ボード上のパスを rename/move する。
+        Rename or move a path on the MicroPython board.
 
         Args:
-            src: 移動元パス
-            dst: 移動先パス
+            src: the source path
+            dst: the destination path
         """
         ok, error = _exec_simple(
             f"import os\ntry:\n os.rename({src!r}, {dst!r})\n print('OK')\nexcept Exception as e:\n print(f'ERROR: {{e}}')",
