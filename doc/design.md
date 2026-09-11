@@ -1,13 +1,13 @@
-# MicroPython MCP Bridge — 設計ドキュメント
+# MicroPython MCP Bridge — Design Document
 
-## 概要
+## Overview
 
-MicroPython REPL (ESP32, RP2040, etc.) に対して、MCPクライアント（Claude Desktopなど）から
-Pythonコードの実行・ファイル操作・デバイス制御ができるブリッジサーバーを作る。
+Build a bridge server that lets MCP clients (Claude Desktop and others) execute Python code,
+manipulate files, and control the device against a MicroPython REPL (ESP32, RP2040, etc.).
 
 ---
 
-## システム構成
+## System architecture
 
 ```mermaid
 flowchart LR
@@ -29,178 +29,179 @@ flowchart LR
 
 ---
 
-## コンポーネント設計
+## Component design
 
-### 1. MCP Server レイヤー (`server.py`)
+### 1. MCP Server layer (`server.py`)
 
-- **プロトコル**: MCPの `stdio` トランスポートを使用（Claude Desktopと接続する場合の標準）
-- **ライブラリ**: `mcp` Python SDK（`pip install mcp`）
-- **責務**: MCPツール定義・リクエスト受付・レスポンス返却
+- **Protocol**: uses MCP's `stdio` transport (the standard for connecting to Claude Desktop)
+- **Library**: the `mcp` Python SDK (`pip install mcp`)
+- **Responsibilities**: MCP tool definitions, accepting requests, returning responses
 
-### 2. Serial Manager レイヤー (`serial_manager.py`)
+### 2. Serial Manager layer (`serial_manager.py`)
 
-- **ライブラリ**: `pyserial`
-- **責務**: MicroPython ボードとのシリアル通信管理
-  - REPL制御（`Ctrl+C` でキャンセル、`Ctrl+D` でリセット）
-  - Raw REPL モード（`Ctrl+A`）を使ってコードを確実に送信
-  - タイムアウト付き応答受信
-  - 接続管理（自動再接続）
+- **Library**: `pyserial`
+- **Responsibilities**: managing serial communication with the MicroPython board
+  - REPL control (`Ctrl+C` to cancel, `Ctrl+D` to reset)
+  - Reliable code transmission using Raw REPL mode (`Ctrl+A`)
+  - Receiving responses with a timeout
+  - Connection management (automatic reconnection)
 
-### 3. ツール定義 (`tools/`)
+### 3. Tool definitions (`tools/`)
 
-各MCPツールを機能ごとにモジュール化する。
-
----
-
-## 静的リソース方針
-
-- `micropython://guide/recipes`: よくある作業の進め方
-- `micropython://policy/hardware-docs`: `HARDWARE.md` を更新すべき条件
-- `micropython://guide/troubleshooting`: よくある問題の復旧手順
-- `micropython://guide/limitations`: 既知の制約一覧
-
-`HARDWARE.md` の更新判断は「ライブラリを追加したかどうか」ではなく、「将来のセッションが再利用すべきボード固有知識が増えたか」を基準にする。
+Each MCP tool is organized into modules by function.
 
 ---
 
-## MCPツール一覧（提供する機能）
+## Static resource policy
 
-| ツール名 | 説明 | 主なパラメータ |
+- `micropython://guide/recipes`: how to carry out common tasks
+- `micropython://policy/hardware-docs`: when `HARDWARE.md` should be updated
+- `micropython://guide/troubleshooting`: recovery steps for common problems
+- `micropython://guide/limitations`: list of known limitations
+
+The criterion for updating `HARDWARE.md` is not "was a library added" but "has board-specific
+knowledge that future sessions should reuse increased".
+
+---
+
+## MCP tool list (functionality provided)
+
+| Tool name | Description | Main parameters |
 |---|---|---|
-| `micropython_exec` | Pythonコードをブロック実行し結果を返す | `code: str`, `timeout: int` |
-| `micropython_eval` | 式を評価して値を返す | `expression: str` |
-| `micropython_list_files` | ファイルシステム上のファイル一覧 | `path: str = "/"` |
-| `micropython_stat_path` | パス情報を読み出す | `path: str` |
-| `micropython_read_file` | ファイルの内容を読み出す | `path: str`, `as_base64: bool = False` |
-| `micropython_read_hardware_md` | `/HARDWARE.md` を読み出す | なし |
-| `micropython_write_file` | ファイルに内容を書き込む | `path: str`, `content: str | None`, `content_base64: str | None` |
-| `micropython_append_file` | ファイルに内容を追記する | `path: str`, `content: str | None`, `content_base64: str | None` |
-| `micropython_delete_file` | ファイルを削除する | `path: str` |
-| `micropython_make_dir` | ディレクトリを作成する | `path: str`, `parents: bool = False`, `exist_ok: bool = False` |
-| `micropython_remove_dir` | 空ディレクトリを削除する | `path: str` |
-| `micropython_rename_path` | パス名を変更する | `src: str`, `dst: str` |
-| `micropython_reset` | ソフトリセット（`machine.reset()`） | なし |
-| `micropython_get_info` | デバイス情報（チップ情報・空きメモリ等）を取得 | なし |
-| `micropython_list_ports` | 利用可能なシリアルポートを列挙する | なし |
-| `micropython_connect` | 指定ポートに接続する | `port: str`, `baudrate: int = 115200` |
-| `micropython_disconnect` | シリアル接続を切断する | なし |
+| `micropython_exec` | Run Python code, blocking, and return the result | `code: str`, `timeout: int` |
+| `micropython_eval` | Evaluate an expression and return its value | `expression: str` |
+| `micropython_list_files` | List files on the filesystem | `path: str = "/"` |
+| `micropython_stat_path` | Read information about a path | `path: str` |
+| `micropython_read_file` | Read the contents of a file | `path: str`, `as_base64: bool = False` |
+| `micropython_read_hardware_md` | Read `/HARDWARE.md` | none |
+| `micropython_write_file` | Write content to a file | `path: str`, `content: str | None`, `content_base64: str | None` |
+| `micropython_append_file` | Append content to a file | `path: str`, `content: str | None`, `content_base64: str | None` |
+| `micropython_delete_file` | Delete a file | `path: str` |
+| `micropython_make_dir` | Create a directory | `path: str`, `parents: bool = False`, `exist_ok: bool = False` |
+| `micropython_remove_dir` | Remove an empty directory | `path: str` |
+| `micropython_rename_path` | Rename a path | `src: str`, `dst: str` |
+| `micropython_reset` | Soft reset (`machine.reset()`) | none |
+| `micropython_get_info` | Get device information (chip info, free memory, etc.) | none |
+| `micropython_list_ports` | List the available serial ports | none |
+| `micropython_connect` | Connect to the given port | `port: str`, `baudrate: int = 115200` |
+| `micropython_disconnect` | Close the serial connection | none |
 
 ---
 
-## MicroPython との通信プロトコル詳細
+## Details of the MicroPython communication protocol
 
-MicroPython REPLには以下の2つのモードがある：
+The MicroPython REPL has the following two modes:
 
 ### Normal REPL
-- インタラクティブ入力モード
-- プロンプト: `>>> `
-- 単純なコマンドに使用
+- Interactive input mode
+- Prompt: `>>> `
+- Used for simple commands
 
-### Raw REPL（推奨）
-- `Ctrl+A` (`\x01`) で入行
-- `Ctrl+B` (`\x02`) でノーマルREPLに戻る
-- 送信フォーマット:
+### Raw REPL (recommended)
+- Enter with `Ctrl+A` (`\x01`)
+- Return to the normal REPL with `Ctrl+B` (`\x02`)
+- Transmission format:
   ```
-  Ctrl+A  →  ボードが "raw REPL; CTRL-B to exit\r\n>" を返す
-  <code>  →  コードを送信
-  Ctrl+D  →  実行トリガー
-  ボードが "OK<stdout>\x04<stderr>\x04>" を返す
+  Ctrl+A  →  the board returns "raw REPL; CTRL-B to exit\r\n>"
+  <code>  →  send the code
+  Ctrl+D  →  execution trigger
+  the board returns "OK<stdout>\x04<stderr>\x04>"
   ```
-- **構造化されたレスポンスが取れるため、自動処理に最適**
+- **Ideal for automated processing, because a structured response can be obtained**
 
 ---
 
-## ディレクトリ構成
+## Directory layout
 
 ```
 0079_MCP/
-├── design.md                  # このファイル
+├── design.md                  # this file
 ├── README.md
-├── pyproject.toml             # パッケージ定義（uv）
+├── pyproject.toml             # package definition (uv)
 ├── src/
 │   └── mcp_micropython/
 │       ├── __init__.py
-│       ├── server.py          # MCPサーバーエントリポイント
-│       ├── serial_manager.py  # シリアル通信管理
-│       ├── raw_repl.py        # Raw REPL プロトコル実装
+│       ├── server.py          # MCP server entry point
+│       ├── serial_manager.py  # serial communication management
+│       ├── raw_repl.py        # Raw REPL protocol implementation
 │       └── tools/
 │           ├── __init__.py
-│           ├── execution.py   # exec/eval ツール
-│           ├── filesystem.py  # ファイル操作ツール
-│           └── device.py      # デバイス情報・接続管理ツール
-└── claude_desktop_config_example.json   # Claude Desktop設定例
+│           ├── execution.py   # exec/eval tools
+│           ├── filesystem.py  # file manipulation tools
+│           └── device.py      # device information and connection management tools
+└── claude_desktop_config_example.json   # Claude Desktop configuration example
 ```
 
 ---
 
-## 確定事項（ヒアリング結果）
+## Confirmed requirements (from stakeholder interviews)
 
-| 項目 | 決定内容 |
+| Item | Decision |
 |---|---|
-| MCPクライアント | Codex (VSCode), Copilot (VSCode), Antigravity |
-| 接続方式 | USB-Serial のみ（WebREPL不要） |
-| 実行環境 | Windows PowerShell |
-| パッケージ管理 | `uv` |
-| 大容量ファイル転送 | 現時点不要（将来拡張を考慮した設計にする） |
+| MCP clients | Codex (VSCode), Copilot (VSCode), Antigravity |
+| Connection method | USB serial only (WebREPL not required) |
+| Execution environment | Windows PowerShell |
+| Package management | `uv` |
+| Large file transfer | Not required at this time (design with future extension in mind) |
 
 ---
 
-## 技術スタック
+## Technology stack
 
-| 要素 | 採用技術 | 理由 |
+| Element | Technology chosen | Rationale |
 |---|---|---|
-| 言語 | Python 3.11+ | MCP SDKの推奨環境 |
-| MCP SDK | `mcp[cli]` | 公式SDK |
-| シリアル通信 | `pyserial` | 実績ある標準ライブラリ |
-| パッケージ管理 | `uv` | 高速・モダン、Windows対応 |
-| トランスポート | `stdio` | VSCode Extension系MCPクライアントの標準 |
+| Language | Python 3.11+ | The environment recommended by the MCP SDK |
+| MCP SDK | `mcp[cli]` | The official SDK |
+| Serial communication | `pyserial` | A proven, standard library |
+| Package management | `uv` | Fast, modern, and works on Windows |
+| Transport | `stdio` | The standard for VSCode-extension-style MCP clients |
 
 ---
 
-## 実装フェーズ
+## Implementation phases
 
-### Phase 1: 基盤（シリアル通信）
-- [x] `serial_manager.py`: ポート検索・接続・切断
-- [x] `raw_repl.py`: Raw REPLモードでのコード送受信
-- [ ] 単体テスト（実機なしでもモックで動作確認）
+### Phase 1: Foundation (serial communication)
+- [x] `serial_manager.py`: port discovery, connect, disconnect
+- [x] `raw_repl.py`: sending and receiving code in Raw REPL mode
+- [ ] Unit tests (verifiable with mocks, without real hardware)
 
-### Phase 2: MCPサーバー骨格
-- [x] `server.py`: MCPサーバーの起動・ツール登録
-- [x] `micropython_connect` / `micropython_disconnect` / `micropython_list_ports` ツール
-- [x] Claude Desktopで接続確認
+### Phase 2: MCP server skeleton
+- [x] `server.py`: starting the MCP server and registering tools
+- [x] `micropython_connect` / `micropython_disconnect` / `micropython_list_ports` tools
+- [x] Connection verified with Claude Desktop
 
-### Phase 3: 実行ツール
-- [x] `micropython_exec`: コードブロック実行
-- [x] `micropython_eval`: 式評価
-- [x] `micropython_get_info`: デバイス情報取得
+### Phase 3: Execution tools
+- [x] `micropython_exec`: run a block of code
+- [x] `micropython_eval`: evaluate an expression
+- [x] `micropython_get_info`: get device information
 
-### Phase 4: ファイルシステムツール
+### Phase 4: Filesystem tools
 - [x] `micropython_list_files` / `micropython_stat_path`
 - [x] `micropython_read_file` / `micropython_read_hardware_md` / `micropython_write_file` / `micropython_append_file` / `micropython_delete_file`
 - [x] `micropython_make_dir` / `micropython_remove_dir` / `micropython_rename_path`
 
-### Phase 5: 品質・UX
-- [ ] タイムアウト・エラーハンドリングの強化
-- [ ] 自動再接続
-- [x] ドキュメント整備
+### Phase 5: Quality and UX
+- [ ] Stronger timeout and error handling
+- [ ] Automatic reconnection
+- [x] Documentation
 
 ---
 
-## 検討事項・リスク
+## Considerations and risks
 
-| 項目 | 内容 |
+| Item | Details |
 |---|---|
-| 文字コード | MicroPythonボードからのレスポンスはUTF-8だが、バイナリファイルは別対応が必要 |
-| 大きなファイル転送 | `write_file` が内部で複数チャンク送信する |
-| 並列アクセス | MCP Clientから複数の同時リクエストが来た場合のシリアル通信の排他制御 |
-| ポートの固定 | OSによってCOMポート名が変わるため、設定ファイルで指定できるようにする |
-| Raw REPLの安定性 | 通信エラー時にREPLが壊れた状態になりうる → リセット機構が必要 |
+| Character encoding | Responses from the MicroPython board are UTF-8, but binary files need separate handling |
+| Large file transfer | `write_file` sends multiple chunks internally |
+| Concurrent access | Mutual exclusion on the serial link when multiple simultaneous requests arrive from the MCP client |
+| Pinning the port | COM port names change depending on the OS, so make them specifiable in a configuration file |
+| Raw REPL stability | The REPL can end up in a broken state on a communication error → a reset mechanism is needed |
 
 ---
 
-## 参考リンク
+## Reference links
 
 - [MCP Python SDK](https://github.com/modelcontextprotocol/python-sdk)
-- [MicroPython Raw REPL仕様](https://docs.micropython.org/en/latest/reference/repl.html#raw-mode)
+- [MicroPython Raw REPL specification](https://docs.micropython.org/en/latest/reference/repl.html#raw-mode)
 - [pyserial docs](https://pyserial.readthedocs.io/)
-- [mpremote ソースコード](https://github.com/micropython/micropython/tree/master/tools/mpremote)（Raw REPL実装の参考）
+- [mpremote source code](https://github.com/micropython/micropython/tree/master/tools/mpremote) (reference for the Raw REPL implementation)

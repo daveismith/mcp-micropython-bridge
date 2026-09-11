@@ -32,4 +32,4 @@ htmlcov/
 Thumbs.db
 
 # uv
-# uv.lock はバージョン管理に含める（再現性のため）
+# Keep uv.lock in version control for reproducibility

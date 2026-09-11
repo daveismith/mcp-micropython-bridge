@@ -1,33 +1,38 @@
-# コンテキスト節約向けツール追加案
+# Proposal: Tools for Saving Context
 
-## 目的
+## Purpose
 
-LLM にファイル全文を渡さずに、次の作業を完結しやすくすること。
+To make the following tasks easy to complete without passing the full text of a file to the LLM.
 
-- ローカル PC とデバイス間のファイル転送
-- 差分確認
-- 必要箇所だけの部分取得
-- サーバー側での簡易検索
+- File transfer between the local PC and the device
+- Checking for differences
+- Partial retrieval of only the parts that are needed
+- Simple server-side search
 
-既存の `micropython_read_file` / `micropython_write_file` は残し、
-低コンテキスト向けツールを追加する方針。
+The approach is to keep the existing `micropython_read_file` / `micropython_write_file` and add
+low-context tools alongside them.
+
+> **Status**: This is a design proposal. Everything in Phases 1 and 2, and the
+> `read_lines` / `head_lines` / `tail_lines` tools in Phase 3, have been implemented.
+> `micropython_grep_file` (Phase 3) and `micropython_sync_file` / `sync_dir` (Phase 4) are
+> **proposals only** and are not part of the shipped tool set.
 
 ---
 
-## 優先順位
+## Priority
 
 1. `upload` / `download`
 2. `hash` / `compare`
 3. `read_lines` / `head_lines` / `tail_lines` / `grep`
-4. 将来必要なら `sync_dir`
+4. `sync_dir`, if it turns out to be needed later
 
 ---
 
-## Phase 1: 転送系
+## Phase 1: Transfer
 
 ### `micropython_upload_file`
 
-ローカルファイルをデバイスへ転送する。
+Transfers a local file to the device.
 
 ```python
 def micropython_upload_file(
@@ -39,7 +44,7 @@ def micropython_upload_file(
     ...
 ```
 
-戻り値案:
+Proposed return value:
 
 ```python
 class UploadFileResult(TypedDict):
@@ -51,21 +56,21 @@ class UploadFileResult(TypedDict):
     error: str | None
 ```
 
-仕様:
+Specification:
 
-- `local_path` はホスト側パス
-- `remote_path` はデバイス側パス
-- ホストでファイルを読み、既存の `_write_file_bytes()` を再利用
-- `overwrite=False` かつ既存ファイルありなら失敗
-- 成功時はアップロードした内容の `sha256` を返す
+- `local_path` is a host-side path
+- `remote_path` is a device-side path
+- Read the file on the host and reuse the existing `_write_file_bytes()`
+- Fail if `overwrite=False` and the file already exists
+- On success, return the `sha256` of the uploaded content
 
-用途:
+Use cases:
 
-- LLM に本文を渡さず、`main.py` や asset をそのまま転送
+- Transfer `main.py` or an asset as-is, without passing its text to the LLM
 
 ### `micropython_download_file`
 
-デバイスファイルをローカルへ保存する。
+Saves a device file locally.
 
 ```python
 def micropython_download_file(
@@ -77,7 +82,7 @@ def micropython_download_file(
     ...
 ```
 
-戻り値案:
+Proposed return value:
 
 ```python
 class DownloadFileResult(TypedDict):
@@ -89,26 +94,26 @@ class DownloadFileResult(TypedDict):
     error: str | None
 ```
 
-仕様:
+Specification:
 
-- `remote_path` を `_read_file_bytes()` で取得
-- `local_path` はワークスペース配下のみ許可
-- 親ディレクトリがなければ失敗
-- `overwrite=False` かつ既存ファイルありなら失敗
+- Retrieve `remote_path` with `_read_file_bytes()`
+- Allow `local_path` only underneath the workspace
+- Fail if the parent directory does not exist
+- Fail if `overwrite=False` and the file already exists
 
-用途:
+Use cases:
 
-- 退避
-- 比較用保存
-- ローカル diff ツール利用
+- Taking a backup
+- Saving a copy for comparison
+- Using a local diff tool
 
 ---
 
-## Phase 2: 差分確認系
+## Phase 2: Difference checking
 
 ### `micropython_hash_file`
 
-デバイスファイルの内容ハッシュを返す。
+Returns a content hash of a device file.
 
 ```python
 def micropython_hash_file(
@@ -119,7 +124,7 @@ def micropython_hash_file(
     ...
 ```
 
-戻り値案:
+Proposed return value:
 
 ```python
 class HashFileResult(TypedDict):
@@ -131,19 +136,19 @@ class HashFileResult(TypedDict):
     error: str | None
 ```
 
-仕様:
+Specification:
 
-- 初期実装はホスト側で `_read_file_bytes()` 後に `hashlib.sha256`
-- 将来、デバイス側実装に寄せてもよい
+- The initial implementation runs `hashlib.sha256` on the host after `_read_file_bytes()`
+- It may be moved to a device-side implementation in the future
 
-用途:
+Use cases:
 
-- 差分有無だけ知りたい
-- 再転送要否判定
+- Only needing to know whether there is a difference
+- Deciding whether a re-transfer is necessary
 
 ### `micropython_compare_local_remote`
 
-ローカルとデバイスの一致判定。
+Decides whether the local and device files match.
 
 ```python
 def micropython_compare_local_remote(
@@ -154,7 +159,7 @@ def micropython_compare_local_remote(
     ...
 ```
 
-戻り値案:
+Proposed return value:
 
 ```python
 class CompareLocalRemoteResult(TypedDict):
@@ -167,18 +172,18 @@ class CompareLocalRemoteResult(TypedDict):
     error: str | None
 ```
 
-用途:
+Use cases:
 
-- LLM に本文を渡さず一致判定
-- `sync` 実装の下敷き
+- Deciding whether they match without passing the text to the LLM
+- A foundation for implementing `sync`
 
 ---
 
-## Phase 3: 部分取得・検索系
+## Phase 3: Partial retrieval and search
 
 ### `micropython_read_lines`
 
-ファイルの一部分を行単位で返す。
+Returns part of a file, by line.
 
 ```python
 def micropython_read_lines(
@@ -192,7 +197,7 @@ def micropython_read_lines(
     ...
 ```
 
-戻り値案:
+Proposed return value:
 
 ```python
 class ReadFileLinesResult(TypedDict):
@@ -205,15 +210,15 @@ class ReadFileLinesResult(TypedDict):
     error: str | None
 ```
 
-用途:
+Use cases:
 
-- コードの前後数行確認
-- ログの一部確認
-- 行番号つきで LLM に渡す
+- Checking a few lines of code before and after a point
+- Checking part of a log
+- Passing content to the LLM with line numbers
 
 ### `micropython_head_lines`
 
-先頭 N 行だけ返す。
+Returns only the first N lines.
 
 ```python
 def micropython_head_lines(
@@ -228,7 +233,7 @@ def micropython_head_lines(
 
 ### `micropython_tail_lines`
 
-末尾 N 行だけ返す。
+Returns only the last N lines.
 
 ```python
 def micropython_tail_lines(
@@ -241,7 +246,7 @@ def micropython_tail_lines(
     ...
 ```
 
-共通戻り値案:
+Proposed shared return value:
 
 ```python
 class ReadTextExcerptResult(TypedDict):
@@ -253,14 +258,14 @@ class ReadTextExcerptResult(TypedDict):
     error: str | None
 ```
 
-用途:
+Use cases:
 
-- `/boot.py` やログの確認
-- 末尾エラーだけ確認
+- Checking `/boot.py` or a log
+- Checking only a trailing error
 
-### `micropython_grep_file`
+### `micropython_grep_file` (proposal, not implemented)
 
-単純な文字列検索。
+Simple string search.
 
 ```python
 def micropython_grep_file(
@@ -273,7 +278,7 @@ def micropython_grep_file(
     ...
 ```
 
-戻り値案:
+Proposed return value:
 
 ```python
 class GrepMatch(TypedDict):
@@ -290,12 +295,12 @@ class GrepFileResult(TypedDict):
     error: str | None
 ```
 
-仕様:
+Specification:
 
-- 正規表現より先に部分文字列一致で十分
-- `max_matches` で打ち切り
+- Substring matching is sufficient, before reaching for regular expressions
+- Cut off at `max_matches`
 
-用途:
+Use cases:
 
 - `import wifi_config`
 - `Pin(`
@@ -303,11 +308,11 @@ class GrepFileResult(TypedDict):
 
 ---
 
-## Phase 4: 将来の同期系
+## Phase 4: Future synchronization (proposal, not implemented)
 
 ### `micropython_sync_file`
 
-ローカルとデバイスを比較し、差分があるときだけ転送する。
+Compares the local and device files and transfers only when there is a difference.
 
 ```python
 def micropython_sync_file(
@@ -318,7 +323,7 @@ def micropython_sync_file(
     ...
 ```
 
-戻り値案:
+Proposed return value:
 
 ```python
 class SyncFileResult(TypedDict):
@@ -333,25 +338,25 @@ class SyncFileResult(TypedDict):
     error: str | None
 ```
 
-`sync_dir` はこの上に載せる構成が安全。
+Building `sync_dir` on top of this is the safer arrangement.
 
 ---
 
-## 実装メモ
+## Implementation notes
 
-対象ファイル:
+Files affected:
 
-- `src\mcp_micropython\tools\filesystem.py`
+- `src/mcp_micropython/tools/filesystem.py`
 - `README.md`
-- 必要なら `tests\test_filesystem_tools.py`
+- `tests/test_filesystem_tools.py`, if needed
 
-既存コードの再利用候補:
+Existing code that could be reused:
 
 - `_read_file_bytes()`
 - `_write_file_bytes()`
 - `_resolve_write_bytes()`
 
-ホスト側処理として追加したい helper:
+Helpers to add for host-side processing:
 
 ```python
 def _compute_sha256(data: bytes) -> str: ...
@@ -362,19 +367,19 @@ def _write_local_file_bytes(local_path: str, data: bytes, overwrite: bool) -> in
 
 ---
 
-## 安全策
+## Safety measures
 
-- `download` の保存先はワークスペース配下のみ
-- `upload` / `download` は `overwrite` を明示
-- 巨大ファイルはサイズ上限を設ける
-- `grep` は `max_matches` を必須で持つ
-- `read_lines` は `max_lines` 上限を持つ
+- `download` may only save underneath the workspace
+- `upload` / `download` require `overwrite` to be explicit
+- Impose a size limit for very large files
+- `grep` must always have a `max_matches`
+- `read_lines` has a `max_lines` upper bound
 
 ---
 
-## 最小実装セット
+## Minimum implementation set
 
-最初の 1 回は次だけで十分。
+For a first pass, the following alone is enough.
 
 - `micropython_upload_file`
 - `micropython_download_file`
@@ -384,4 +389,4 @@ def _write_local_file_bytes(local_path: str, data: bytes, overwrite: bool) -> in
 - `micropython_head_lines`
 - `micropython_tail_lines`
 
-この 7 本で、全文転記なしの運用がかなり増える。
+These seven alone considerably increase how much can be done without transcribing full file contents.
