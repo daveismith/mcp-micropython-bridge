@@ -1,1 +1,1 @@
-"""tools パッケージ初期化"""
+"""tools package initialization"""

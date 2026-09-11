@@ -1,9 +1,9 @@
 """
-execution.py — コード実行ツール
+execution.py - code execution tools
 
-MCP ツール:
-  - micropython_exec : Python コードブロックを実行し stdout/stderr を返す
-  - micropython_eval : 式を評価して結果を返す
+MCP tools:
+  - micropython_exec : run a block of Python code and return stdout/stderr
+  - micropython_eval : evaluate an expression and return the result
 """
 
 from __future__ import annotations
@@ -29,23 +29,24 @@ class EvalResult(TypedDict):
 
 
 def register(mcp: FastMCP, manager: SessionManager) -> None:
-    """コード実行ツールを MCP サーバーに登録する。"""
+    """Register the code execution tools with the MCP server."""
 
     @mcp.tool()
     def micropython_exec(code: str, timeout: int = 10) -> ExecResult:
         """
-        MicroPython インタープリタで Python コードを実行する。
-        複数行のコードも実行できる。
+        Run Python code on the MicroPython interpreter.
+        Multi-line code can be executed as well.
 
         Args:
-            code: 実行する Python コード (複数行可)
-            timeout: コード送信から Raw REPL 復帰完了までの全体タイムアウト秒数 (デフォルト 10秒)
+            code: the Python code to run (may span multiple lines)
+            timeout: total timeout in seconds, covering everything from sending the code
+                through returning to the Raw REPL (default 10 seconds)
 
         Returns:
-            ok: 実行に成功したら True
-            stdout: 標準出力
-            stderr: 標準エラー出力
-            error: エラー時のメッセージ。成功時は None
+            ok: True if execution succeeded
+            stdout: standard output
+            stderr: standard error output
+            error: the message on failure; None on success
 
         Example:
             code = "import machine\\nprint(machine.freq())"
@@ -67,15 +68,15 @@ def register(mcp: FastMCP, manager: SessionManager) -> None:
     @mcp.tool()
     def micropython_eval(expression: str) -> EvalResult:
         """
-        MicroPython ボードで式を評価し、結果を文字列で返す。
+        Evaluate an expression on the MicroPython board and return the result as a string.
 
         Args:
-            expression: 評価する Python 式 (例: "1 + 1", "machine.freq()")
+            expression: the Python expression to evaluate (e.g. "1 + 1", "machine.freq()")
 
         Returns:
-            ok: 評価に成功したら True
-            result: 評価結果の文字列表現
-            error: エラー時のメッセージ。成功時は None
+            ok: True if evaluation succeeded
+            result: the string representation of the result
+            error: the message on failure; None on success
         """
         try:
             result = manager.eval_expr(expression)
