@@ -1,31 +1,43 @@
+> **Fork notice** — This is an English-language fork of
+> [SWITCHSCIENCE/mcp-micropython-bridge](https://github.com/SWITCHSCIENCE/mcp-micropython-bridge).
+> All credit for the original implementation goes to the upstream authors.
+> This fork exists only to translate the documentation and tool descriptions
+> into English; see upstream for the original Japanese.
+
 # mcp-micropython-bridge
 
-MicroPython REPL への MCP ブリッジサーバー。
+An MCP bridge server for the MicroPython REPL.
 
-Claude Desktop, Codex (VSCode), Copilot (VSCode), Antigravity などの MCP クライアントから、
-USB Serial または WebREPL 経由で MicroPython (ESP32, RP2040, etc.) を操作できます。
+Operate MicroPython devices (ESP32, RP2040, etc.) over USB serial or WebREPL from MCP clients
+such as Claude Desktop, Codex (VSCode), Copilot (VSCode), and Antigravity.
 
-`HARDWARE.md` を単なる配線メモではなく、将来のセッションが再利用するためのボード固有ドキュメントとして育てていく運用を想定しています。たとえばサーボ操作の依頼が来たら、その場限りのコード片で済ませるのではなく、小さな helper module をデバイス上に作成し、今後の使い方や前提が増えたときだけ `HARDWARE.md` に短い利用メモを追記して、次回以降はその helper を再利用する形を推奨します。
+`HARDWARE.md` is meant to be more than a wiring scratchpad: treat it as board-specific
+documentation that future sessions will reuse. For example, when a request to drive a servo
+comes in, don't settle for a throwaway snippet. Create a small helper module on the device,
+add a short usage note to `HARDWARE.md` only when new usage patterns or assumptions appear,
+and reuse that helper from then on.
 
-## セットアップ
+## Setup
 
-```powershell
-# 依存関係のインストール
+```bash
+# Install dependencies
 uv sync
 
-# サーバー起動（動作確認用）
+# Start the server (to check that it runs)
 uv run mcp-micropython-bridge
 
-# tools ラッパー経由の実機テスト CLI
-uv run python -m mcp_micropython.device_test_cli --target COM3
+# Real-device test CLI, driven through the tools wrappers
+uv run python -m mcp_micropython.device_test_cli --target COM3          # Windows
+uv run python -m mcp_micropython.device_test_cli --target /dev/ttyACM0  # Linux
+uv run python -m mcp_micropython.device_test_cli --target /dev/cu.usbmodem101  # macOS
 ```
 
-## MicroPython ファームウェアの書き込み
+## Flashing MicroPython firmware
 
-このツールを使用するには、ターゲットデバイスに MicroPython ファームウェアを本体に書き込む必要があります。
-詳細は [MicroPython 公式サイト](https://micropython.org/) を参照してください。
+To use this tool, the MicroPython firmware must be flashed onto the target device itself.
+See the [official MicroPython site](https://micropython.org/) for details.
 
-### ターゲット別ダウンロードページ
+### Download pages by target
 
 - [ESP32](https://micropython.org/download/?mcu=esp32)
 - [ESP32-S3](https://micropython.org/download/?mcu=esp32s3)
@@ -33,28 +45,30 @@ uv run python -m mcp_micropython.device_test_cli --target COM3
 - [RP2040](https://micropython.org/download/?mcu=rp2040)
 - [RP2350](https://micropython.org/download/?mcu=rp2350)
 
-### ESP32 へのインストール例 (`esptool.py`)
+### Example install on ESP32 (`esptool.py`)
 
-ESP32 シリーズは `esptool.py` を利用してコマンドラインからインストールできます。
+The ESP32 series can be flashed from the command line with `esptool.py`.
 
-1. `esptool` をインストール:
+1. Install `esptool`:
    ```bash
    pip install esptool
    ```
-2. 既存フラッシュの消去:
+2. Erase the existing flash:
    ```bash
    esptool.py --chip esp32 --port COMx erase_flash
    ```
-3. 新しいファームウェアの書き込み:
+3. Write the new firmware:
    ```bash
    esptool.py --chip esp32 --port COMx --baud 460800 write_flash -z 0x1000 <firmware_file>.bin
    ```
-   (※ チップの種類 (esp32, esp32s3, etc.) や構成により、書き込みアドレスが `0x0` になる場合があります。詳細は各ダウンロードページの指示に従ってください)
+   (Note: depending on the chip variant (esp32, esp32s3, etc.) and its configuration, the write
+   address may be `0x0` instead. Follow the instructions on the relevant download page.)
 
 
-## MCP クライアントへの登録
+## Registering with an MCP client
 
-`claude_desktop_config_example.json` を参考に、各クライアントの設定ファイルに追記してください。
+Use `claude_desktop_config_example.json` as a reference and add an entry to your client's
+configuration file.
 
 ```json
 {
@@ -72,103 +86,115 @@ ESP32 シリーズは `esptool.py` を利用してコマンドラインからイ
 }
 ```
 
-## 提供リソース
+## Resources provided
 
-| リソース | 説明 |
+| Resource | Description |
 |---|---|
-| `micropython://guide/recipes` | よくある作業の進め方 |
-| `micropython://policy/hardware-docs` | `HARDWARE.md` を更新すべき条件 |
-| `micropython://guide/troubleshooting` | よくある問題の復旧手順 |
-| `micropython://guide/limitations` | 既知の制約一覧 |
+| `micropython://guide/recipes` | How to carry out common tasks |
+| `micropython://policy/hardware-docs` | When `HARDWARE.md` should be updated |
+| `micropython://guide/troubleshooting` | Recovery steps for common problems |
+| `micropython://guide/limitations` | List of known limitations |
 
-## 提供ツール
+## Tools provided
 
-| ツール | 説明 |
+| Tool | Description |
 |---|---|
-| `micropython_list_ports` | 利用可能なシリアルポートを列挙 |
-| `micropython_connect` | `COM3` または `host[:port]` に接続 |
-| `micropython_disconnect` | 接続を切断 |
-| `micropython_connection_status` | 現在の接続状態を取得 |
-| `micropython_exec` | Python コードをブロック実行 |
-| `micropython_eval` | 式を評価して値を返す |
-| `micropython_get_info` | デバイス情報取得 |
-| `micropython_reset` | ソフトリセット |
-| `micropython_interrupt` | Ctrl-C を送って実行中の処理を中断 |
-| `micropython_read_stream` | 一定時間ぶんの出力を読む |
-| `micropython_read_until` | 特定文字列が出るまで待つ |
-| `micropython_reset_and_capture` | ボードをリセットして起動ログを取得（serial 専用） |
-| `micropython_list_files` | ファイル一覧 |
-| `micropython_stat_path` | パス情報取得 |
-| `micropython_read_file` | ファイル読み出し |
-| `micropython_read_lines` | 行単位で一部読み出し |
-| `micropython_head_lines` | 先頭数行を読み出し |
-| `micropython_tail_lines` | 末尾数行を読み出し |
-| `micropython_read_hardware_md` | `/HARDWARE.md` を読み出し |
-| `micropython_upload_file` | ローカルファイルをデバイスへ転送 |
-| `micropython_download_file` | デバイスファイルをローカルへ保存 |
-| `micropython_hash_file` | デバイスファイルの SHA-256 を取得 |
-| `micropython_compare_local_remote` | ローカルとデバイスの一致確認 |
-| `micropython_write_file` | ファイル書き込み |
-| `micropython_append_file` | ファイル追記 |
-| `micropython_delete_file` | ファイル削除 |
-| `micropython_make_dir` | ディレクトリ作成 |
-| `micropython_remove_dir` | 空ディレクトリ削除 |
-| `micropython_rename_path` | パス名変更 |
+| `micropython_list_ports` | List the available serial ports |
+| `micropython_connect` | Connect to `COM3` or `host[:port]` |
+| `micropython_disconnect` | Close the connection |
+| `micropython_connection_status` | Get the current connection state |
+| `micropython_exec` | Run Python code, blocking until it completes |
+| `micropython_eval` | Evaluate an expression and return its value |
+| `micropython_get_info` | Get device information |
+| `micropython_reset` | Soft reset |
+| `micropython_interrupt` | Send Ctrl-C to interrupt the running program |
+| `micropython_read_stream` | Read output for a fixed period of time |
+| `micropython_read_until` | Wait until a specific string appears |
+| `micropython_reset_and_capture` | Reset the board and capture the boot log (serial only) |
+| `micropython_list_files` | List files |
+| `micropython_stat_path` | Get information about a path |
+| `micropython_read_file` | Read a file |
+| `micropython_read_lines` | Read a range of lines |
+| `micropython_head_lines` | Read the first few lines |
+| `micropython_tail_lines` | Read the last few lines |
+| `micropython_read_hardware_md` | Read `/HARDWARE.md` |
+| `micropython_upload_file` | Transfer a local file to the device |
+| `micropython_download_file` | Save a device file locally |
+| `micropython_hash_file` | Get the SHA-256 of a device file |
+| `micropython_compare_local_remote` | Check whether a local and a device file match |
+| `micropython_write_file` | Write a file |
+| `micropython_append_file` | Append to a file |
+| `micropython_delete_file` | Delete a file |
+| `micropython_make_dir` | Create a directory |
+| `micropython_remove_dir` | Remove an empty directory |
+| `micropython_rename_path` | Rename a path |
 
-`micropython_exec(timeout=...)` の `timeout` は、コード送信開始から Raw REPL への復帰完了までを含む全体予算として扱います。
-`micropython_read_file` / `micropython_read_hardware_md` / `micropython_write_file` / `micropython_append_file` の `timeout` も同じ意味です。
+The `timeout` of `micropython_exec(timeout=...)` is treated as a total budget covering everything
+from the start of code transmission through the return to the Raw REPL.
+The `timeout` of `micropython_read_file` / `micropython_read_hardware_md` / `micropython_write_file` /
+`micropython_append_file` has the same meaning.
 
-`micropython_write_file` は `content` によるテキスト書き込みと `content_base64` によるバイナリ書き込みをサポートします。
-`micropython_append_file` も同じ入出力形式で末尾追記できます。
-`micropython_read_file(as_base64=True)` を使うと、改行コードや非 UTF-8 バイト列を保持したまま取得できます。
+`micropython_write_file` supports both text writes via `content` and binary writes via `content_base64`.
+`micropython_append_file` appends using the same input and output formats.
+Using `micropython_read_file(as_base64=True)` retrieves the content with line endings and non-UTF-8
+byte sequences preserved.
 
-## 実機テスト CLI
+## Real-device test CLI
 
-`src/mcp_micropython/tools` の登録済みツール関数を `FakeMCP` 経由で呼び出し、実機に対して接続確認やファイル I/O、serial 専用の stream/reset 系チェックをまとめて実行できます。
+This CLI calls the registered tool functions in `src/mcp_micropython/tools` through a `FakeMCP` shim,
+running connection checks, file I/O, and the serial-only stream/reset checks against a real device in
+one go.
 
-```powershell
-# Serial で拡張セットを実行
+```bash
+# Run the extended set over serial
 uv run python -m mcp_micropython.device_test_cli --target COM3
 
-# WebREPL で共通テストだけ実行
+# Run only the common tests over WebREPL
 uv run python -m mcp_micropython.device_test_cli --target 192.168.1.10:8266 --password secret --tests common,filesystem
 
-# エントリーポイントから起動
+# Launch via the entry point
 uv run mcp-micropython-device-test --target COM3 --tests all
 ```
 
-主なオプション:
+Main options:
 
-- `--target`: `COM3` または `host[:port]`
-- `--password`: WebREPL 用パスワード
-- `--baudrate`: serial ボーレート
+- `--target`: `COM3` or `host[:port]` (on macOS/Linux, a device path such as `/dev/cu.usbmodem101` or `/dev/ttyACM0`)
+- `--password`: password for WebREPL
+- `--baudrate`: serial baud rate
 - `--tests`: `all`, `common`, `filesystem`, `serial`, `stream`, `reset`
-- `--large-file-size`: 長文転送テストのサイズ
-- `--exec-timeout`: `exec` / ファイル操作タイムアウト
-- `--read-timeout`: `read_until` / `read_stream` / `reset_and_capture` の待機時間
-- `--reconnect-timeout`: serial リセット後に COM ポートが再出現するまで待つ時間
+- `--large-file-size`: size used by the large transfer test
+- `--exec-timeout`: timeout for `exec` and file operations
+- `--read-timeout`: wait time for `read_until` / `read_stream` / `reset_and_capture`
+- `--reconnect-timeout`: how long to wait for the serial port to reappear after a reset
 
-serial で `stream` / `reset` を実行する場合、一時的に `/main.py` を差し替えて起動ログを検証したあと、元の内容へ復元します。`/boot.py` は変更しませんが、変更前提の確認として読み出します。
+When running `stream` / `reset` over serial, `/main.py` is temporarily replaced in order to verify the
+boot log, and then restored to its original contents. `/boot.py` is not modified, but it is read as a
+check on that assumption.
 
-## WebREPL 事前設定
+## WebREPL prerequisites
 
-WebREPL 接続を使う場合は、対象ボード側の Wi-Fi 接続と `webrepl.start()` が事前設定済みである必要があります。
-この MCP サーバーは設定済みの WebREPL へ接続することだけを担当し、`boot.py` への初期セットアップは行いません。
+To use a WebREPL connection, the target board must already be configured with Wi-Fi connectivity and
+`webrepl.start()`.
+This MCP server is only responsible for connecting to an already configured WebREPL; it does not
+perform the initial setup of `boot.py`.
 
-このリポジトリには、初期設定用ファイルとして `device_root\boot.py` と `device_root\setup.py` を同梱しています。
+This repository ships `device_root/boot.py` and `device_root/setup.py` as initial-setup files.
 
-- `device_root\boot.py`
-  デバイス起動時に NVS から Wi-Fi SSID / Wi-Fi パスワード / WebREPL パスワードを読み出し、Wi-Fi 接続と `webrepl.start()` を実行します
-- `device_root\setup.py`
-  serial REPL 上で一度だけ実行する初期設定スクリプトです。入力した値を NVS へ保存します
+- `device_root/boot.py`
+  On device boot, reads the Wi-Fi SSID, Wi-Fi password, and WebREPL password from NVS, then connects
+  to Wi-Fi and runs `webrepl.start()`
+- `device_root/setup.py`
+  A one-time setup script to run from the serial REPL. It saves the values you enter into NVS
 
-`setup.py` で保存する `WEBREPL_PASSWORD` は MicroPython WebREPL の制約に合わせて 8 文字以下にしてください。
-資格情報はファイルではなく NVS に保存されますが、デバイス実機に保持される点は同じなので、取り扱い注意です。
+Keep the `WEBREPL_PASSWORD` saved by `setup.py` to 8 characters or fewer, as required by MicroPython's
+WebREPL.
+Credentials are stored in NVS rather than in a file, but they are still held on the physical device, so
+handle them with care.
 
-設定後の流れ:
+Flow after setup:
 
-1. serial 接続で `device_root\boot.py` をデバイスの `/boot.py` として書き込む
-2. serial 接続で `device_root\setup.py` をデバイスの `/setup.py` として書き込む
-3. serial REPL で `import setup` を実行し、Wi-Fi SSID / Wi-Fi パスワード / WebREPL パスワードを保存する
-4. ボードを再起動する
-5. Wi-Fi 側で割り当てられた IP アドレスを確認し、接続する
+1. Over a serial connection, write `device_root/boot.py` to the device as `/boot.py`
+2. Over a serial connection, write `device_root/setup.py` to the device as `/setup.py`
+3. Run `import setup` in the serial REPL and save the Wi-Fi SSID, Wi-Fi password, and WebREPL password
+4. Restart the board
+5. Check the IP address assigned on the Wi-Fi side and connect to it
