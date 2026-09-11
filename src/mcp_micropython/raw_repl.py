@@ -115,7 +115,7 @@ class RawRepl:
         deadline = time.monotonic() + timeout
 
         # "OK" を待つ
-        self._read_until_with_budget(b"OK", deadline=deadline, stage="'OK' 応答")
+        self._read_until_with_budget(b"OK", deadline=deadline, stage="the 'OK' response")
 
         # stdout を \x04 まで読む
         stdout_bytes = self._read_until_with_budget(CTRL_D, deadline=deadline, stage="stdout")
@@ -124,7 +124,7 @@ class RawRepl:
         stderr_bytes = self._read_until_with_budget(CTRL_D, deadline=deadline, stage="stderr")
 
         # 終端プロンプト ">" を読み捨てる
-        self._read_until_with_budget(b">", deadline=deadline, stage="Raw REPL プロンプト復帰")
+        self._read_until_with_budget(b">", deadline=deadline, stage="the return to the Raw REPL prompt")
 
         return ReplResult(
             stdout=stdout_bytes.decode("utf-8", errors="replace"),
@@ -149,13 +149,14 @@ class RawRepl:
         remaining = deadline - time.monotonic()
         if remaining <= 0:
             raise RawReplError(
-                f"{stage} の待機を開始する前にタイムアウトしました。"
-                " exec_code(timeout=...) はコード送信から Raw REPL 復帰までの全体予算です。"
+                f"Timed out before starting to wait for {stage}."
+                " exec_code(timeout=...) is the total budget from sending the code"
+                " through returning to the Raw REPL."
             )
         try:
             return self._read_until(terminator, timeout=remaining)
         except TimeoutError as e:
-            raise RawReplError(f"{stage} の受信中にタイムアウトしました: {e}") from e
+            raise RawReplError(f"Timed out while receiving {stage}: {e}") from e
 
     def _read_until(self, terminator: bytes, timeout: float = DEFAULT_TIMEOUT) -> bytes:
         """
@@ -179,8 +180,8 @@ class RawRepl:
                 remaining = max(deadline - time.monotonic(), 0.0)
                 if remaining <= 0:
                     raise TimeoutError(
-                        f"タイムアウト: {terminator!r} を {timeout:.1f}秒以内に受信できません。"
-                        f" 受信済みデータ: {bytes(buf)!r}"
+                        f"Timed out: {terminator!r} was not received within {timeout:.1f}s."
+                        f" Data received so far: {bytes(buf)!r}"
                     )
                 chunk = self._stream.read_some(timeout=min(0.25, remaining))
 
@@ -196,6 +197,6 @@ class RawRepl:
 
             if time.monotonic() >= deadline:
                 raise TimeoutError(
-                    f"タイムアウト: {terminator!r} を {timeout:.1f}秒以内に受信できません。"
-                    f" 受信済みデータ: {bytes(buf)!r}"
+                    f"Timed out: {terminator!r} was not received within {timeout:.1f}s."
+                    f" Data received so far: {bytes(buf)!r}"
                 )
