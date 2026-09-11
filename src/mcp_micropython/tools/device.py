@@ -11,7 +11,7 @@ from mcp.server.fastmcp import FastMCP
 from ..session_manager import SessionManager
 from ..transport import UnsupportedOperationError
 
-# デバイス情報取得コード (MicroPython上で実行)
+# Code that gathers device information (runs on the MicroPython board)
 _GET_INFO_CODE = """\
 import sys, gc, os
 gc.collect()
@@ -289,8 +289,8 @@ def register(mcp: FastMCP, manager: SessionManager) -> None:
         Reconnection is required after the reset
         """
         try:
-            # machine.reset() はレスポンスを返さずリセットするため
-            # タイムアウトを短めに設定してエラーを無視する
+            # machine.reset() resets without returning a response, so use a
+            # short timeout and ignore the resulting error
             try:
                 manager.exec_code("import machine; machine.reset()", timeout=2.0)
             except Exception:

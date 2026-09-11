@@ -1,15 +1,15 @@
 """
-server.py - MCP サーバーエントリポイント
+server.py - MCP server entry point
 
-起動方法:
+How to start it:
     uv run mcp-micropython-bridge
 
-Claude Desktop / VSCode Extension の設定例:
+Example configuration for Claude Desktop / a VSCode extension:
     {
       "mcpServers": {
         "micropython": {
           "command": "uv",
-          "args": ["--directory", "<このディレクトリのパス>", "run", "mcp-micropython-bridge"]
+          "args": ["--directory", "<path to this directory>", "run", "mcp-micropython-bridge"]
         }
       }
     }
@@ -43,7 +43,7 @@ _manager = SessionManager()
 
 
 def _register_tools() -> None:
-    """全ツールを MCP サーバーに登録する。"""
+    """Register all tools with the MCP server."""
     static_resources.register(mcp)
     device.register(mcp, _manager)
     execution.register(mcp, _manager)
@@ -51,7 +51,7 @@ def _register_tools() -> None:
 
 
 def main() -> None:
-    """エントリポイント。stdio トランスポートで MCP サーバーを起動する。"""
+    """Entry point. Starts the MCP server on the stdio transport."""
     _register_tools()
     mcp.run(transport="stdio")
 
